@@ -1,0 +1,26 @@
+{
+  "model": "RandomForestClassifier(n_estimators=300, max_depth=8)",
+  "split": "GroupShuffleSplit by client_id, test_size=0.2, random_state=42 (honest, no leakage)",
+  "precision_at_50_grouped": 0.58,
+  "precision_0.5_cutoff": 0.565,
+  "recall_0.5_cutoff": 0.742,
+  "f1_0.5_cutoff": 0.642,
+  "false_positives_test_set": 1796,
+  "false_negatives_test_set": 812,
+  "test_set_size": 6163,
+  "priority_tier_counts": {
+    "P3 - low priority / monitor": 3097,
+    "P2 - review this month": 2906,
+    "P1 - review this week": 160
+  },
+  "top_features": [
+    "impressions_90d",
+    "avg_position",
+    "content_age_days",
+    "char_count",
+    "word_count",
+    "days_since_last_update",
+    "search_volume",
+    "ctr"
+  ]
+}
