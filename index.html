@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Refresh / Content Opportunity Scoring — FlyRank ML Capstone</title>
+<style>
+body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222}
+h1{font-size:28px}
+h2{border-bottom:2px solid #ddd;padding-bottom:6px;margin-top:40px}
+table{border-collapse:collapse;width:100%;margin:16px 0}
+th,td{border:1px solid #ccc;padding:8px;text-align:left}
+th{background:#f4f4f4}
+.note{background:#fff8e1;padding:12px;border-left:4px solid #f5c518;margin:16px 0}
+</style>
+</head>
+<body>
+
+<h1>Refresh / Content Opportunity Scoring: Predicting Declining Content</h1>
+<p><em>FlyRank ML Internship Capstone — Hussain</em></p>
+
+<h2>Abstract</h2>
+<p>This paper asks which pages a content team should prioritize for refresh, using a classifier that flags content likely to be declining in search performance. A Random Forest model was trained on FlyRank's warehouse data to predict a binary "declining" label. The model's top signals — impressions over the last 90 days, average search position, and content age — align with intuitive decline patterns. Out of the evaluation set, the model produced 1796 false positives and 812 false negatives, giving the content team a starting point for triage rather than a fully automated decision.</p>
+
+<h2>1. Introduction: The Question</h2>
+<p><strong>Decision this work improves:</strong> which content pages to prioritize for refresh, out of a large catalog, when the team cannot review everything manually.</p>
+<p><strong>Who acts on it:</strong> the content/SEO team, who would refresh, rewrite, or otherwise update pages flagged as high-risk of decline.</p>
+<p><strong>Cost of a wrong call:</strong> a false positive wastes the team's limited refresh capacity on a page that was not actually declining. A false negative lets a genuinely declining page go unnoticed, continuing to lose visibility and traffic.</p>
+
+<h2>2. Data</h2>
+<p>The dataset comes from the FlyRank Warehouse (content-level search performance data). Key fields used: <code>impressions_90d</code>, <code>avg_position</code>, <code>content_age_days</code>, <code>char_count</code>, <code>word_count</code>, <code>days_since_last_update</code>, <code>search_volume</code>, <code>ctr</code>, and the target label <code>is_declining_label</code>.</p>
+
+<h2>3. Methodology</h2>
+<p>The task is framed as binary classification: predict whether a piece of content is declining. Data was split using <code>GroupShuffleSplit</code> by <code>client_id</code> to prevent leakage across clients. A Random Forest classifier was trained and compared against a simpler rule-based baseline (freshness + volume weighting).</p>
+<div class="note">A validation audit in an earlier phase of this work found that a naive (non-grouped) split overstated performance — Precision@50 was 0.840 under a naive split vs. 0.580 under the honest, grouped split. All results reported here use the grouped, leakage-safe split.</div>
+
+<h2>4. Results</h2>
+<p>Top features driving the Random Forest's predictions:</p>
+<table>
+<tr><th>Feature</th><th>Importance</th></tr>
+<tr><td>impressions_90d</td><td>0.233</td></tr>
+<tr><td>avg_position</td><td>0.175</td></tr>
+<tr><td>content_age_days</td><td>0.154</td></tr>
+<tr><td>char_count</td><td>0.068</td></tr>
+<tr><td>word_count</td><td>0.061</td></tr>
+<tr><td>days_since_last_update</td><td>0.039</td></tr>
+<tr><td>search_volume</td><td>0.038</td></tr>
+<tr><td>ctr</td><td>0.034</td></tr>
+</table>
+<p>On the evaluation set, the model produced <strong>1796 false positives</strong> (flagged as declining but weren't) and <strong>812 false negatives</strong> (missed a real decline). The three dominant features — impressions, position, and content age — together explain most of the model's decisions: content that is losing visibility and ranking poorly as it ages carries the clearest signal of decline.</p>
+
+<h2>5. Limitations</h2>
+<p>This model is decision-support, not causal proof. It does not claim to know <em>why</em> Google ranks a page lower, only that certain observed, directional patterns correlate with a page later being labeled as declining. It should not be used to make unilateral refresh decisions without human review, especially given the false positive/negative rates above.</p>
+
+<h2>6. Recommendations</h2>
+<ul>
+<li>Use the model's <code>rf_proba</code> score to rank pages for manual review, not as an auto-refresh trigger.</li>
+<li>Prioritize review of pages with high <code>impressions_90d</code> decline combined with worsening <code>avg_position</code>.</li>
+<li>Re-validate the model periodically since false negative pages (missed declines) risk going unnoticed longest.</li>
+</ul>
+
+<h2>7. Reproducibility</h2>
+<p>Full notebooks and code: <a href="https://github.com/farahhussain159-create/flyrank-ml-week1">github.com/farahhussain159-create/flyrank-ml-week1</a></p>
+
+<h2>Acknowledgments &amp; Data Credit</h2>
+<p>Built on the FlyRank ML Internship dataset. Data source is the FlyRank Warehouse research practice; <a href="https://flyrank.ai">https://flyrank.ai</a></p>
+
+</body>
+</html>
