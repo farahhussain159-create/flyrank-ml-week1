@@ -2,67 +2,136 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Refresh / Content Opportunity Scoring — FlyRank ML Capstone</title>
 <style>
-body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222}
-h1{font-size:28px}
-h2{border-bottom:2px solid #ddd;padding-bottom:6px;margin-top:40px}
-table{border-collapse:collapse;width:100%;margin:16px 0}
-th,td{border:1px solid #ccc;padding:8px;text-align:left}
-th{background:#f4f4f4}
-.note{background:#fff8e1;padding:12px;border-left:4px solid #f5c518;margin:16px 0}
+  :root{
+    --navy:#0A2A66;
+    --teal:#1f7db4;
+    --bg:#fafbfc;
+    --text:#1a1a2e;
+    --muted:#555;
+    --border:#e2e6ec;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    max-width:820px;
+    margin:0 auto;
+    padding:48px 24px 100px;
+    line-height:1.7;
+    color:var(--text);
+    background:var(--bg);
+  }
+  h1{font-size:32px;color:var(--navy);margin-bottom:4px;line-height:1.25}
+  .byline{color:var(--muted);font-size:15px;margin-bottom:36px}
+  h2{
+    font-size:21px;color:var(--navy);
+    border-bottom:2px solid var(--border);
+    padding-bottom:8px;margin-top:48px;
+  }
+  h3{font-size:17px;color:var(--teal);margin-top:24px}
+  p{margin:14px 0}
+  table{border-collapse:collapse;width:100%;margin:20px 0;font-size:15px}
+  th,td{border:1px solid var(--border);padding:10px 12px;text-align:left}
+  th{background:#eef2f7;color:var(--navy)}
+  .abstract{
+    background:#eef4fb;border-left:4px solid var(--teal);
+    padding:18px 20px;margin:20px 0;border-radius:4px;font-size:15px;
+  }
+  .note{background:#fff8e1;padding:14px 18px;border-left:4px solid #f5c518;margin:18px 0;border-radius:4px}
+  .limits{background:#fdeeee;padding:14px 18px;border-left:4px solid #d9534f;margin:18px 0;border-radius:4px}
+  code{background:#eef2f7;padding:2px 6px;border-radius:3px;font-size:0.9em}
+  figure{margin:24px 0;text-align:center}
+  figure img{max-width:100%;border:1px solid var(--border);border-radius:6px}
+  figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+  ol,ul{padding-left:22px}
+  li{margin:8px 0}
+  a{color:var(--teal)}
+  .tag{display:inline-block;background:#eef2f7;color:var(--navy);font-size:12px;
+       padding:3px 10px;border-radius:12px;margin:2px 4px 2px 0}
 </style>
 </head>
 <body>
 
 <h1>Refresh / Content Opportunity Scoring: Predicting Declining Content</h1>
-<p><em>FlyRank ML Internship Capstone — Hussain</em></p>
+<p class="byline"><em>FlyRank ML Internship Capstone — Hussain</em></p>
 
-<h2>Abstract</h2>
-<p>This paper asks which pages a content team should prioritize for refresh, using a classifier that flags content likely to be declining in search performance. A Random Forest model was trained on FlyRank's warehouse data to predict a binary "declining" label. The model's top signals — impressions over the last 90 days, average search position, and content age — align with intuitive decline patterns. Out of the evaluation set, the model produced 1796 false positives and 812 false negatives, giving the content team a starting point for triage rather than a fully automated decision.</p>
+<div class="abstract">
+<strong>Abstract.</strong> This paper asks which content pages a team should prioritize for refresh, given a large catalog and limited review capacity. We built a Random Forest classifier trained on a client-grouped, leakage-checked split of FlyRank's warehouse data to flag pages likely to be declining in search performance. Under an honest, client-grouped validation split, the model reached a Precision@50 of 0.58 against a hand-written baseline rule's 0.38 — a measured improvement, not a guaranteed one. On the held-out test set the model produced 1,796 false positives and 812 false negatives out of 6,163 items, numbers that shape how the resulting queue should be used. We conclude with a three-tier ranked action playbook intended as a triage aid for human reviewers, not an automated decision system.</p>
+</div>
 
-<h2>1. Introduction: The Question</h2>
-<p><strong>Decision this work improves:</strong> which content pages to prioritize for refresh, out of a large catalog, when the team cannot review everything manually.</p>
-<p><strong>Who acts on it:</strong> the content/SEO team, who would refresh, rewrite, or otherwise update pages flagged as high-risk of decline.</p>
-<p><strong>Cost of a wrong call:</strong> a false positive wastes the team's limited refresh capacity on a page that was not actually declining. A false negative lets a genuinely declining page go unnoticed, continuing to lose visibility and traffic.</p>
+<h2>1. Introduction — The Question</h2>
+<p><strong>Decision this work improves:</strong> which content pages to prioritize for refresh, out of a large catalog, when a team cannot manually review everything.</p>
+<p><strong>Who acts on it:</strong> content/SEO strategists who decide what to refresh, rewrite, or otherwise update.</p>
+<p><strong>Cost of a wrong call:</strong> a false positive wastes limited refresh effort on a page that wasn't actually declining. A false negative lets a genuinely declining page go unnoticed, continuing to lose visibility and traffic.</p>
 
 <h2>2. Data</h2>
-<p>The dataset comes from the FlyRank Warehouse (content-level search performance data). Key fields used: <code>impressions_90d</code>, <code>avg_position</code>, <code>content_age_days</code>, <code>char_count</code>, <code>word_count</code>, <code>days_since_last_update</code>, <code>search_volume</code>, <code>ctr</code>, and the target label <code>is_declining_label</code>.</p>
+<p>This work uses the <strong>FlyRank ML Internship dataset</strong> (Pseudonymized Warehouse Release, v20260703), a star-schema warehouse of anonymized, hashed content-performance records. Two slices were used:</p>
+<ul>
+<li>A <strong>30,000-row anonymized content sample</strong> (44 columns) for baseline rule design and signal auditing.</li>
+<li>A <strong>9,841,378-row daily performance fact table slice</strong> (month = March 2026, 31 unique days) for the formal data contract and leakage audit.</li>
+</ul>
+<p><strong>Key fields:</strong> <code>impressions_90d</code>, <code>avg_position</code>, <code>content_age_days</code>, <code>char_count</code>, <code>word_count</code>, <code>days_since_last_update</code>, <code>search_volume</code>, <code>ctr</code>, and the target label <code>is_declining_label</code> (derived from an observed <code>trend_direction == "down"</code> flag).</p>
+<p><strong>Excluded, and why:</strong> the sealed June 2026 test-month file (<code>fact_content_daily_performance_sample.parquet</code>) was never touched while building features or tuning the label, preserving it as an unbiased future holdout. All identifiers used are hashed (<code>client_hash_id</code>, <code>content_hash_id</code>) — no raw client names, domains, or search queries were accessed in identifiable form, per the FlyRank Internship Data Use Terms.</p>
 
 <h2>3. Methodology</h2>
-<p>The task is framed as binary classification: predict whether a piece of content is declining. Data was split using <code>GroupShuffleSplit</code> by <code>client_id</code> to prevent leakage across clients. A Random Forest classifier was trained and compared against a simpler rule-based baseline (freshness + volume weighting).</p>
-<div class="note">A validation audit in an earlier phase of this work found that a naive (non-grouped) split overstated performance — Precision@50 was 0.840 under a naive split vs. 0.580 under the honest, grouped split. All results reported here use the grouped, leakage-safe split.</div>
+<p>The task is framed as <strong>binary classification</strong>: predict whether a page is declining. Only same-day, decision-time features were used — none derived from the label window (<code>trend_direction</code>, <code>trend_pct</code>).</p>
+<h3>Baseline</h3>
+<p>A hand-written rule combining a staleness score and a normalized search-volume score (60/40 weighted), producing a ranked action queue. Baseline Precision@50 = 0.38 (naive split reference).</p>
+<h3>Model</h3>
+<p>A Random Forest classifier (n_estimators=300, max_depth=8) compared against Logistic Regression, trained on the same feature set and label.</p>
+<h3>Validation design</h3>
+<p>Data was split with <code>GroupShuffleSplit</code> by client, so no client's pages appear in both train and test — the honest, deployment-realistic split.</p>
+<div class="note">
+<strong>Leakage checks.</strong> A dedicated audit tested the split itself: a naive random split gave Precision@50 = 0.840, while the honest, client-grouped split gave 0.580 — a large gap showing part of the naive score was memorized client patterns, not real signal. A second test deliberately injected the true label as a feature: R² jumped from an honest 0.311 to a fake 1.0, confirming the leakage-detection process works. All reported results below use the honest, grouped, leakage-checked split.
+</div>
 
-<h2>4. Results</h2>
-<p>Top features driving the Random Forest's predictions:</p>
+<h2>4. Results (vs. Baseline)</h2>
 <table>
-<tr><th>Feature</th><th>Importance</th></tr>
-<tr><td>impressions_90d</td><td>0.233</td></tr>
-<tr><td>avg_position</td><td>0.175</td></tr>
-<tr><td>content_age_days</td><td>0.154</td></tr>
-<tr><td>char_count</td><td>0.068</td></tr>
-<tr><td>word_count</td><td>0.061</td></tr>
-<tr><td>days_since_last_update</td><td>0.039</td></tr>
-<tr><td>search_volume</td><td>0.038</td></tr>
-<tr><td>ctr</td><td>0.034</td></tr>
+<tr><th>Method</th><th>Precision@50</th><th>Precision (0.5 cutoff)</th><th>Recall (0.5 cutoff)</th><th>F1 (0.5 cutoff)</th></tr>
+<tr><td>Baseline (rule)</td><td>0.38</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>Logistic Regression</td><td>0.60*</td><td>0.546</td><td>0.573</td><td>0.559</td></tr>
+<tr><td>Random Forest</td><td>0.52*</td><td>0.565</td><td>0.742</td><td>0.642</td></tr>
 </table>
-<p>On the evaluation set, the model produced <strong>1796 false positives</strong> (flagged as declining but weren't) and <strong>812 false negatives</strong> (missed a real decline). The three dominant features — impressions, position, and content age — together explain most of the model's decisions: content that is losing visibility and ranking poorly as it ages carries the clearest signal of decline.</p>
+<p style="font-size:13px;color:var(--muted)">*Note: these two Precision@50 figures came from an earlier, naive random-row split (Week 4/5 comparison). Re-run on the honest, client-grouped split, Logistic Regression's Precision@50 measured 0.580 versus the 0.38 baseline — the split-honest number to rely on.</p>
 
-<h2>5. Limitations</h2>
-<p>This model is decision-support, not causal proof. It does not claim to know <em>why</em> Google ranks a page lower, only that certain observed, directional patterns correlate with a page later being labeled as declining. It should not be used to make unilateral refresh decisions without human review, especially given the false positive/negative rates above.</p>
+<figure>
+  <img src="work/figures/w07_priority_tiers_and_features.png" alt="Priority tier distribution and top feature importances">
+  <figcaption>Left: distribution of the ranked action queue across P1/P2/P3 review tiers. Right: top 8 features driving the Random Forest's decline_probability score.</figcaption>
+</figure>
 
-<h2>6. Recommendations</h2>
+<p><strong>Errors observed</strong> on the honest held-out test set (6,163 items): <strong>1,796 false positives</strong> (flagged as declining but weren't) and <strong>812 false negatives</strong> (missed a real decline). The three dominant features — <code>impressions_90d</code>, <code>avg_position</code>, and <code>content_age_days</code> — together explain most of the model's decisions: content losing visibility and ranking poorly as it ages carries the clearest measured signal of decline.</p>
+
+<h2>5. Limitations &amp; Honest Framing</h2>
+<div class="limits">
 <ul>
-<li>Use the model's <code>rf_proba</code> score to rank pages for manual review, not as an auto-refresh trigger.</li>
-<li>Prioritize review of pages with high <code>impressions_90d</code> decline combined with worsening <code>avg_position</code>.</li>
-<li>Re-validate the model periodically since false negative pages (missed declines) risk going unnoticed longest.</li>
+<li><strong>Scale:</strong> trained and tested on one anonymized dataset slice (30,000 rows, ~32 clients). Not validated on other content types, industries, or time windows.</li>
+<li><strong>What Precision@50 means:</strong> 0.58 means roughly 4 in 10 items in a top-50 pull are false alarms — this narrows attention, it does not replace human judgment on any single item.</li>
+<li><strong>Correlation, not causation:</strong> this is observational data with no controlled experiment. The model finds association, not proof that refreshing a page will improve its performance.</li>
+<li><strong>No time-series re-validation:</strong> performance has not been re-tested on a later time window to confirm it holds as content and behavior drift.</li>
+<li><strong>No fairness/bias audit</strong> was run across client segments or content categories.</li>
+<li><strong>The label is a proxy</strong> (an observed trend flag), not a verified ground-truth outcome.</li>
 </ul>
+</div>
+
+<h2>6. Ranked Recommendations (Action Playbook)</h2>
+<p>Based on the model's honest, held-out scoring of 6,163 items:</p>
+<ol>
+<li><strong>P1 — Review this week (160 items).</strong> Highest decline_probability plus strong reason codes (stale content, low ranking, below-median impressions). A human reviewer must confirm each is not a false positive before any refresh action.</li>
+<li><strong>P2 — Review this month (2,906 items).</strong> Solid but lower-confidence signal; batch review monthly rather than urgent action.</li>
+<li><strong>P3 — Low priority / monitor (3,097 items).</strong> Weak or mixed signal; monitor for change next cycle rather than act now.</li>
+<li><strong>Human review is mandatory before any action</strong> — this is a triage aid, not an auto-action trigger. A second reviewer should sign off before P1 content is unpublished, merged, or majorly rewritten.</li>
+<li><strong>Never use this system to:</strong> auto-publish/auto-delete content without a human in the loop; make client-facing causal claims; score individual employees; or apply it to a client/content type outside the training distribution without re-validation.</li>
+<li><strong>Monitor for decay:</strong> re-run Precision@50 on a fresh sample monthly. A drop below 0.58, or a sudden jump in flag-rate, signals drift — investigate before trusting the queue. Retrain when the 90-day feature window rolls forward significantly or new clients/content types are added.</li>
+</ol>
 
 <h2>7. Reproducibility</h2>
-<p>Full notebooks and code: <a href="https://github.com/farahhussain159-create/flyrank-ml-week1">github.com/farahhussain159-create/flyrank-ml-week1</a></p>
+<p>Full notebooks, data contract, leakage audits, and the action-queue pipeline: <a href="https://github.com/farahhussain159-create/flyrank-ml-week1">github.com/farahhussain159-create/flyrank-ml-week1</a></p>
+<p>Key notebooks: <code>work/notebooks/capstone.ipynb</code> (summary), <code>w03_data_contract.ipynb</code> (data + leakage), <code>w05_model.ipynb</code> (model training), <code>w06_validation_audit.ipynb</code> (honest split), <code>w07_action_playbook.ipynb</code> (final queue + charts).</p>
 
 <h2>Acknowledgments &amp; Data Credit</h2>
-<p>Built on the FlyRank ML Internship dataset. Data source is the FlyRank Warehouse research practice; <a href="https://flyrank.ai">https://flyrank.ai</a></p>
+<p>Built on the FlyRank ML Internship dataset. Data source: the FlyRank Warehouse research practice — <a href="https://flyrank.ai" target="_blank" rel="noopener">https://flyrank.ai</a></p>
 
 </body>
 </html>
